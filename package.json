@@ -1,0 +1,12 @@
+{
+  "name": "letter",
+  "version": "0.0.0",
+  "description": "Letter",
+  "main": "Test.js",
+  "author": {
+    "name": ""
+  },
+  "dependencies": {
+    "prompt-sync": "^4.2.0"
+  }
+}
