@@ -9,7 +9,36 @@ const tokenizer = new Tokenizer();
 const parser = new Parser();
 
 const program = `
-    X + 5 > 10;
+    // Base class
+    class Point {
+      def constructor(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+
+      def calc() {
+        return this.x + this.y;
+      }
+    }
+    
+    // Inheritance
+    class Point3D extends Point {
+      def constructor(x, y, z) {
+        super(x, y);
+        this.z = z;
+      }
+
+      def calc() {
+        return super() + this.z;
+      }
+    }
+
+    // Instance
+    let p = new Point3D(10, 20, 30);
+
+    // Call
+    p.calc();
+    
 `;
 
 console.log("==================================");

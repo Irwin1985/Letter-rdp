@@ -22,8 +22,22 @@ const Spec = [
     [/^}/, '}'],  // RightBrace
     [/^\(/, '('], // LeftParen
     [/^\)/, ')'], // RightParen
+    [/^\[/, '['], // LeftBracket
+    [/^\]/, ']'], // RightBracket
     [/^,/, ','],  // Comma
+    [/^\./, '.'], // Dot
+
+
+    // Relational Operators
+    // <, >, <=, >=
     [/^[<>]=?/, 'RELATIONAL_OPERATOR'],
+    [/^[=!]=/, 'EQUALITY_OPERATOR'],
+
+    // Logical Operators
+    // ||, &&, !
+    [/^&&/, 'LOGICAL_AND'],
+    [/^\|\|/, 'LOGICAL_OR'],
+    [/^!/, 'LOGICAL_NOT'],
 
 
     // --------------------------------------
@@ -31,6 +45,26 @@ const Spec = [
     [/^\blet\b/, 'let'],
     [/^\bif\b/, 'if'],
     [/^\belse\b/, 'else'],
+    [/^\btrue\b/, 'true'],
+    [/^\bfalse\b/, 'false'],
+    [/^\bnull\b/, 'null'],
+
+    // --------------------------------------
+    // OOP keywords
+    [/^\bclass\b/, 'class'],
+    [/^\bthis\b/, 'this'],
+    [/^\bextends\b/, 'extends'],
+    [/^\bsuper\b/, 'super'],
+    [/^\bnew\b/, 'new'],
+
+    // --------------------------------------
+    // Iterators
+    [/^\bwhile\b/, 'while'],
+    [/^\bdo\b/, 'do'],
+    [/^\bfor\b/, 'for'],
+
+    [/^\bdef\b/, 'def'],
+    [/^\breturn\b/, 'return'],
 
     // --------------------------------------
     // Assignment operators: =, *=, /=, +=, -=

@@ -66,6 +66,10 @@ class Parser {
      *  | EmptyStatement
      *  | VariableStatement
      *  | IfStatement
+     *  | IterationStatement
+     *  | FunctionStatement
+     *  | ReturnStatement
+     *  | ClassDeclaration
      *  ;
      */
     Statement() {
@@ -78,6 +82,16 @@ class Parser {
                 return this.VariableStatement();
             case 'if':
                 return this.IfStatement();
+            case 'def':
+                return this.FunctionDeclaration();
+            case 'return':
+                return this.ReturnStatement();
+            case 'class':
+                return this.ClassDeclaration();
+            case 'while':
+            case 'do':
+            case 'for':
+                return this.IterationStatement(this._lookahead.type);
             default:
                 return this.ExpressionStatement();
         }
@@ -101,24 +115,226 @@ class Parser {
             test,
             consequent,
             alternate,
+        };
+    }
+
+    /**
+     * FunctionDeclaration
+     *  : 'def' Identifier '(' OptFormalParameterList ')' BlockStatement
+     *  ;
+     */
+    FunctionDeclaration() {
+        this._eat('def');
+        const name = this.Identifier();
+
+        this._eat('(');
+        const params = this._lookahead.type !== ')' ? this.FormalParameterList() : [];
+        this._eat(')');
+
+        const body = this.BlockStatement();
+
+        return {
+            type: 'FunctionDeclaration',
+            name,
+            params,
+            body,
         }
     }
 
+    /**
+     * FormalParameterList
+     *  : Identifier
+     *  | FormalParameterList ',' Identifier
+     *  ;
+     */
+    FormalParameterList() {
+        const params = [];
+        do {
+            params.push(this.Identifier());
+        } while (this._lookahead.type === ',' && this._eat(','));
 
+        return params;
+    }
+
+    /**
+     * ReturnStatement
+     *  : 'return' OptExpression ';'
+     *  ;
+     */
+    ReturnStatement() {
+        this._eat('return');
+        let argument = (this._lookahead.type !== ';') ? this.Expression() : null;
+        this._eat(';');
+        return {
+            type: 'ReturnStatement',
+            argument,
+        }
+    }
+
+    /**
+     * ClassDeclaration
+     *  : 'class' Identifier OptClassExtends BlockStatement
+     *  ;
+     */
+    ClassDeclaration() {
+        this._eat('class');
+        const id = this.Identifier();
+        const superClass = (this._lookahead.type === 'extends') ? this.ClassExtends() : null;
+
+        const body = this.BlockStatement();
+
+        return {
+            type: 'ClassDeclaration',
+            id,
+            superClass,
+            body,
+        }
+
+    }
+
+    /**
+     * ClassExtends
+     *  : 'extends' Identifier
+     *  ;
+     */
+    ClassExtends() {
+        this._eat('extends');
+        return this.Identifier();
+    }
+
+    /**
+     * IterationStatement
+     *  : WhileStatement
+     *  | DoStatement
+     *  | ForStatement
+     *  ;
+     */
+    IterationStatement() {
+        switch (this._lookahead.type) {
+            case 'while':
+                return this.WhileStatement();
+            case 'do':
+                return this.DoStatement();
+            case 'for':
+                return this.ForStatement();
+            default:
+                return null;
+        }
+    }
+
+    /*
+     * WhileStatement
+     *  : 'while' '(' Expression ')' Statement
+     *  ;
+     */
+    WhileStatement() {
+        this._eat('while');
+        this._eat('(');
+        const test = this.Expression();
+        this._eat(')');
+        const body = this.Statement();
+
+        return {
+            type: 'WhileStatement',
+            test,
+            body,
+        };
+
+    }
+
+    /*
+     * DoStatement
+     *  : 'do' Statement 'while' '(' Expression ')' ';'
+     *  ;
+     */
+    DoStatement() {
+        this._eat('do');
+        const body = this.Statement();
+        this._eat('while');
+
+        this._eat('(');
+        const test = this.Expression();
+        this._eat(')');
+        this._eat(';');
+
+
+        return {
+            type: 'DoStatement',
+            body,
+            test,
+        };
+    }
+
+    /**
+     * ForStatement
+     *  : 'for' '(' OptForStatementInit ';' OptExpression ';' OptExpression)' Statement
+     *  ;
+     */
+    ForStatement() {
+        this._eat('for');
+        this._eat('(');
+
+        // Initializer
+        const init = this._lookahead.type !== ';' ? this.ForStatementInit() : null;
+        this._eat(';');
+
+        // Test
+        const test = this._lookahead.type !== ';' ? this.Expression() : null;
+        this._eat(';');
+
+        // Updater
+        const update = this._lookahead.type !== ')' ? this.Expression() : null;
+        this._eat(')');
+
+        const body = this.Statement();
+
+        return {
+            type: 'ForStatement',
+            init,
+            test,
+            update,
+            body,
+        };
+    }
+
+
+    /**
+     * ForStatementInit
+     *  : VariableStatementInit
+     *  | Expression
+     *  ;
+     */
+    ForStatementInit() {
+        if (this._lookahead.type === 'let') {
+            return this.VariableStatementInit();
+        }
+        return this.Expression();
+    }
+
+    /**
+     * VariableStatementInit
+     *  : 'let' VariableDeclarationList
+     *  ;
+     */
+    VariableStatementInit() {
+        this._eat('let');
+        const declarations = this.VariableDeclarationList();
+
+        return {
+            type: 'VariableStatement',
+            declarations,
+        }
+    }
     /**
      * VariableStatement
      *  : 'let' VariableDeclarationList ';'
      *  ;
      */
     VariableStatement() {
-        this._eat('let');
-        const declarations = this.VariableDeclarationList();
+        const variableStatement = this.VariableStatementInit();
         this._eat(';');
 
-        return {
-            type: 'VariableStatement',
-            declarations,
-        }
+        return variableStatement;
     }
 
     /**
@@ -150,7 +366,7 @@ class Parser {
             type: 'VariableDeclaration',
             id,
             init,
-        }
+        };
     }
 
     /**
@@ -174,7 +390,7 @@ class Parser {
         return {
             type: 'ExpressionStatement',
             expression,
-        }
+        };
     }
 
     /**
@@ -189,7 +405,7 @@ class Parser {
         return {
             type: 'BlockStatement',
             body,
-        }
+        };
     }
 
     /**
@@ -201,7 +417,7 @@ class Parser {
         this._eat(';');
         return {
             type: 'EmptyStatement',
-        }
+        };
     }
 
 
@@ -216,11 +432,11 @@ class Parser {
 
     /**
      * AssignmentExpression
-     *  : RelationalExpression
+     *  : LogicalORExpression
      *  | LeftHandSideExpression AssigmentOperator AssignmentExpression
      * */
     AssignmentExpression() {
-        const left = this.RelationalExpression();
+        const left = this.LogicalORExpression();
         // Si el token actual es distinto de (=, +=, -=, *=, /=)
         // entonces no es un nodo Assignment así que retornamos.
         if (!this._isAssignmentOperator(this._lookahead.type)) {
@@ -232,7 +448,73 @@ class Parser {
             operator: this.AssignmentOperator().value,
             left: this._checkValidAssignmentTarget(left),
             right: this.AssignmentExpression(),
+        };
+    }
+
+    /**
+     * LogicalORExpression
+     *  : LogicalANDExpression
+     *  | LogicalANDExpression LOGICAL_OR LogicalANDExpression
+     *  ;
+     */
+    LogicalORExpression() {
+        let left = this.LogicalANDExpression();
+
+        while (this._lookahead.type === 'LOGICAL_OR') {
+            const operator = this._eat('LOGICAL_OR').value;
+            const right = this.LogicalANDExpression();
+            left = {
+                type: 'LogicalExpression',
+                operator,
+                left,
+                right,
+            };
         }
+        return left;
+    }
+
+    /**
+     * LogicalANDExpression
+     *  : EqualityExpression
+     *  | EqualityExpression LOGICAL_AND EqualityExpression
+     *  ;
+     */
+    LogicalANDExpression() {
+        let left = this.EqualityExpression();
+
+        while (this._lookahead.type === 'LOGICAL_AND') {
+            const operator = this._eat('LOGICAL_AND').value;
+            const right = this.EqualityExpression();
+            left = {
+                type: 'LogicalExpression',
+                operator,
+                left,
+                right,
+            };
+        }
+        return left;
+    }
+
+    /**
+     * EqualityExpression
+     *  : RelationalExpression
+     *  | RelationalExpression EQUALITY_OPERATOR RelationalExpression
+     *  ;
+     */
+    EqualityExpression() {
+        let left = this.RelationalExpression();
+
+        while (this._lookahead.type === 'EQUALITY_OPERATOR') {
+            const operator = this._eat('EQUALITY_OPERATOR').value;
+            const right = this.RelationalExpression();
+            left = {
+                type: 'BinaryExpression',
+                operator,
+                right,
+            }
+        }
+
+        return left;
     }
 
     /**
@@ -258,15 +540,6 @@ class Parser {
     }
 
     /**
-     * LeftHandSideExpression
-     *  : Identifier
-     *  ;
-     */
-    LeftHandSideExpression() {
-        return this.Identifier();
-    }
-
-    /**
      * Identifier
      *  : IDENTIFIER
      *  ;
@@ -276,7 +549,7 @@ class Parser {
         return {
             type: 'Identifier',
             name,
-        }
+        };
     }
 
     /**
@@ -285,7 +558,7 @@ class Parser {
      * 52 = 42   // wrong target
      */
     _checkValidAssignmentTarget(node) {
-        if (node.type === 'Identifier') {
+        if (node.type === 'Identifier' || node.type == 'MemberExpression') {
             return node;
         }
         throw new SyntaxError('Invalid left-hand side in assignment expression');
@@ -336,15 +609,15 @@ class Parser {
 
     /** 
      *  MultiplicativeExpression
-     *   : PrimaryExpression (MULTIPLICATIVE_OPERATOR PrimaryExpression)*
+     *   : UnaryExpression (MULTIPLICATIVE_OPERATOR UnaryExpression)*
      *   ;
      */
     MultiplicativeExpression() {
-        let left = this.PrimaryExpression();
+        let left = this.UnaryExpression();
         while (this._lookahead.type === 'MULTIPLICATIVE_OPERATOR') {
             // Operator: *, /
             const operator = this._eat('MULTIPLICATIVE_OPERATOR').value;
-            const right = this.PrimaryExpression();
+            const right = this.UnaryExpression();
             left = {
                 type: 'BinaryExpression',
                 operator,
@@ -355,11 +628,161 @@ class Parser {
         return left;
     }
 
+    /**
+     * UnaryExpression
+     *  : LeftHandSideExpression
+     *  | ADDITIVE_OPERATOR UnaryExpression
+     *  | LOGICAL_NOT UnaryExpression
+     *  ;
+     */
+    UnaryExpression() {
+        let operator;
+        switch (this._lookahead.type) {
+            case 'ADDITIVE_OPERATOR':
+                operator = this._eat('ADDITIVE_OPERATOR').value;
+                break;
+            case 'LOGICAL_NOT':
+                operator = this._eat('LOGICAL_NOT').value;
+                break;
+        }
+        if (operator != null) {
+            return {
+                type: 'UnaryExpression',
+                operator,
+                argument: this.UnaryExpression(), // right recursive e.g: --x, ++5, etc
+            };
+        }
+        return this.LeftHandSideExpression();
+    }
+
+    /**
+     * LeftHandSideExpression
+     *  : CallMemberExpression
+     *  ;
+     */
+    LeftHandSideExpression() {
+        return this.CallMemberExpression();
+    }
+
+    /**
+     * CallMemberExpression
+     *  : MemberExpression
+     *  | CallExpression
+     *  ;
+     */
+    CallMemberExpression() {
+        // Super call:
+        if (this._lookahead.type === 'super') {
+            return this._CallExpression(this.Super());
+        }
+
+        // Member part, might be part of a call:
+        const member = this.MemberExpression();
+
+        // See if we have a call expression:
+        if (this._lookahead.type === '(') {
+            return this._CallExpression(member);
+        }
+
+        // Simple member expression:
+        return member;
+    }
+
+    /**
+     * Generic call expression helper.
+     * 
+     * CallExpression
+     *  : Callee Arguments
+     *  ;
+     *  
+     *  Callee
+     *  : MemberExpression
+     *  | CallExpression
+     *  ;
+     */
+    _CallExpression(callee) {
+        let callExpression = {
+            type: 'CallExpression',
+            callee,
+            arguments: this.Arguments(),
+        }
+        if (this._lookahead.type === '(') {
+            callExpression = this._CallExpression(callExpression);
+        }
+        return callExpression;
+    }
+
+    /**
+     * Arguments
+     *  : '(' OptArgumentList ') '
+     *  ;
+     */
+    Arguments() {
+        this._eat('(');
+        const argumentList = (this._lookahead.type !== ')') ? this.ArgumentList() : [];
+        this._eat(')');
+
+        return argumentList;
+    }
+
+    /**
+     * ArgumentList
+     *  : AssignmentExpression
+     *  | ArgumentList ',' AssignmentExpression e.g: foo(bar = z, baz = 2)
+     *  ;
+     */
+    ArgumentList() {
+        const argumentList = [];
+        do {
+            argumentList.push(this.AssignmentExpression());
+        } while (this._lookahead.type === ',' && this._eat(','));
+
+        return argumentList;
+    }
+
+    /**
+     * MemberExpression
+     *  : PrimaryExpression
+     *  | MemberExpression '.' Identifier
+     *  | MemberExpression '[' Expression ']'
+     *  ;
+     */
+
+    MemberExpression() {
+        let object = this.PrimaryExpression();
+        while (this._lookahead.type === '.' || this._lookahead.type === '[') {
+            if (this._lookahead.type === '.') {
+                this._eat('.');
+                const property = this.Identifier();
+                object = {
+                    type: 'MemberExpression',
+                    computed: false,
+                    object,
+                    property,
+                }
+            } else {
+                this._eat('[');
+                const property = this.Expression();
+                this._eat(']');
+                object = {
+                    type: 'MemberExpression',
+                    computed: true,
+                    object,
+                    property,
+                }
+            }
+        }
+
+        return object;
+    }
+
     /** 
      *  PrimaryExpression
      *    : Literal
      *    | ParenthesizedExpression
-     *    | LeftHandSideExpression
+     *    | Identifier
+     *    | ThisExpression
+     *    | NewExpression
      *    ;
      */
     PrimaryExpression() {
@@ -368,8 +791,52 @@ class Parser {
         }
         switch (this._lookahead.type) {
             case '(': return this.ParenthesizedExpression();
+            case 'IDENTIFIER':
+                return this.Identifier();
+            case 'this':
+                return this.ThisExpression();
+            case 'new':
+                return this.NewExpression();
             default:
-                return this.LeftHandSideExpression();                
+                throw new SyntaxError(`Unexpected primary expression.`);
+        }
+    }
+
+    /**
+     * ThisExpression
+     *  : 'this'
+     *  ;
+     */
+    ThisExpression() {
+        this._eat('this');
+        return {
+            type: 'ThisExpression',
+        };
+    }
+
+    /**
+     * Super
+     *  : 'super'
+     *  ;
+     */
+    Super() {
+        this._eat('super');
+        return {
+            type: 'Super',
+        };
+    }
+
+    /**
+     * NewExpression
+     *  : 'new' MemberExpression Arguments -> e.g: new MyNamespace.MyClass(1, 2);
+     *  ;
+     */
+    NewExpression() {
+        this._eat('new');
+        return {
+            type: 'NewExpression',
+            callee: this.MemberExpression(),
+            arguments: this.Arguments(),
         }
     }
 
@@ -377,7 +844,8 @@ class Parser {
      * Whether the token is a literal.
      */
     _isLiteral(tokenType) {
-        return tokenType === 'NUMBER' || tokenType === 'STRING';
+        return tokenType === 'NUMBER' || tokenType === 'STRING' ||
+            tokenType === 'true' || tokenType === 'false' || tokenType === 'null';
     }
 
     /** 
@@ -396,6 +864,8 @@ class Parser {
      * Literal
      *  : NumericLiteral
      *  | StringLiteral
+     *  | BooleanLiteral
+     *  | NullLiteral
      *  ;
      */
     Literal() {
@@ -403,7 +873,13 @@ class Parser {
             case 'NUMBER':
                 return this.NumericLiteral();
             case 'STRING':
-                return this.StringLiteral()
+                return this.StringLiteral();
+            case 'true':
+                return this.BooleanLiteral(true);
+            case 'false':
+                return this.BooleanLiteral(false);
+            case 'null':
+                return this.NullLiteral();
         }
         throw new SyntaxError(`Literal: unexpected literal production.`);
     }
@@ -418,7 +894,7 @@ class Parser {
         return {
             type: 'NumericLiteral',
             value: Number(token.value),
-        }
+        };
     }
 
     /**
@@ -431,7 +907,34 @@ class Parser {
         return {
             type: 'StringLiteral',
             value: token.value.slice(1, -1), // extrae pepe de "pepe"
-        }
+        };
+    }
+
+    /**
+     * BooleanLiteral
+     *  : TRUE
+     *  | FALSE
+     *  ;
+     */
+    BooleanLiteral(value) {
+        this._eat(value ? 'true' : 'false');
+        return {
+            type: 'BooleanLiteral',
+            value,
+        };
+    }
+
+    /**
+     * NullLiteral
+     *  : 'null'
+     *  ;
+     */
+    NullLiteral() {
+        this._eat('null');
+        return {
+            type: 'NullLiteral',
+            value: null,
+        };
     }
 
     /*
