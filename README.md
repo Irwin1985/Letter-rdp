@@ -1,5 +1,6 @@
 # Letter
 
+This is a full implementation of the course : [Building a Parser from Scratch](http://dmitrysoshnikov.com/courses/parser-from-scratch/)
 
 Parsing or syntactic analysis is one of the first stages in designing and implementing a compiler. A well-designed syntax of your programming language is a big motivation why users would prefer and choose exactly your language.
 
